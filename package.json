@@ -83,6 +83,7 @@
     "@univerjs/preset-sheets-core": "^0.25.1",
     "@univerjs/presets": "^0.25.1",
     "docx-preview": "^0.4.0",
+    "fflate": "0.8.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "tsdown": "^0.22.2",
