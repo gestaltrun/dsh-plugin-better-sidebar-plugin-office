@@ -24,6 +24,7 @@ export function assertPackage(manifest, packed = false) {
   }
   if (manifest.publishConfig?.tag !== 'candidate') throw new Error('Prereleases must use the candidate tag')
   if (manifest.peerDependencies?.[SIDEBAR_NAME] !== SIDEBAR_VERSION) throw new Error('Sidebar peer must be pinned exactly')
+  if (manifest.peerDependencies?.react !== '^18.2.0') throw new Error('React peer must accept the DSH React 18 cohort')
   for (const name of ['preinstall', 'install', 'postinstall', 'prepare']) {
     if (name in (manifest.scripts ?? {})) throw new Error(`Install lifecycle ${name} is forbidden`)
   }
@@ -100,6 +101,9 @@ function pack(manifest, inputs) {
   const client = execFileSync('tar', ['-xOzf', tarball, 'package/lib/client.js'], { encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 })
   if (!client.includes(`id: "${PACKAGE_NAME}"`) || !client.includes('window.__ModuleLoader__.load')) {
     throw new Error('Packed client entry is not registered under the package id')
+  }
+  if (!client.includes('dsh-css:src/client/office.module.css.mjs') || client.includes(ROOT) || client.includes(ROOT.replaceAll('\\', '/'))) {
+    throw new Error('Packed client entry contains checkout-dependent CSS ids')
   }
   const digest = createHash('sha512').update(readFileSync(tarball)).digest('base64')
   console.log(`Artifact: ${tarball}`)

@@ -8,7 +8,11 @@ test('fork identity and exact Sidebar peer pass the release guard', () => {
 })
 
 test('development references are rejected from shipped dependency sections', () => {
-  assert.throws(() => assertPackage({ ...manifest, peerDependencies: { ...manifest.peerDependencies, react: 'link:../react' } }), /unpublished dependency/u)
+  assert.throws(() => assertPackage({ ...manifest, dependencies: { renderer: 'link:../renderer' } }), /unpublished dependency/u)
+})
+
+test('React 18 compatible peers are required', () => {
+  assert.throws(() => assertPackage({ ...manifest, peerDependencies: { ...manifest.peerDependencies, react: '18.2.0' } }), /React peer/u)
 })
 
 test('product packer inputs are explicit absolute paths', () => {

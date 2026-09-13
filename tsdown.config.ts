@@ -22,7 +22,7 @@
  * Types ship from tsc -p tsconfig.build.json, not from tsdown.
  */
 import { readFile } from 'node:fs/promises'
-import { basename, dirname, relative, resolve as resolvePath, sep } from 'node:path'
+import { basename, dirname, isAbsolute, relative, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import type { UserConfig } from 'tsdown'
@@ -63,6 +63,30 @@ const XLSX_BROWSER_ENTRY = resolvePath(
 /** Virtual-id wrapper keeping module CSS away from tsdown's own css pipeline. */
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
+const cssFiles = new Map<string, string>()
+
+/** Give a stylesheet one checkout-independent POSIX id. */
+export function cssBuildId(fileId: string): string {
+  const portable = fileId.replaceAll('\\', '/')
+  if (!/^[A-Za-z]:\//u.test(portable) || sep === '\\') {
+    const repositoryPath = relative(REPOSITORY_ROOT, fileId)
+    if (repositoryPath !== '..' && !repositoryPath.startsWith(`..${sep}`) && !isAbsolute(repositoryPath)) {
+      return repositoryPath.split(sep).join('/')
+    }
+  }
+  const marker = '/node_modules/'
+  const index = portable.lastIndexOf(marker)
+  if (index >= 0) return `node_modules/${portable.slice(index + marker.length)}`
+  throw new Error(`CSS input is outside the package dependency graph: ${fileId}`)
+}
+
+function rememberCss(fileId: string): string {
+  const buildId = cssBuildId(fileId)
+  const existing = cssFiles.get(buildId)
+  if (existing !== undefined && existing !== fileId) throw new Error(`CSS build id collision: ${buildId}`)
+  cssFiles.set(buildId, fileId)
+  return buildId
+}
 
 /** The style-injection prologue shared by module css and plain css loads. */
 function injectTag(pluginId: string, fileId: string, cssText: string): string {
@@ -81,8 +105,8 @@ function injectTag(pluginId: string, fileId: string, cssText: string): string {
 }
 
 /** Simple CSS Modules transform (mirror of dsh-aigc-canvas's css-modules). */
-function transformCssModules(filename: string, source: Buffer): { classMap: Record<string, string>; cssText: string } {
-  const hash = Array.from(filename).reduce((acc, ch) => ((acc << 5) - acc + ch.charCodeAt(0)) | 0, 0).toString(36).replace('-', '')
+function transformCssModules(buildId: string, source: Buffer): { classMap: Record<string, string>; cssText: string } {
+  const hash = Array.from(buildId).reduce((acc, ch) => ((acc << 5) - acc + ch.charCodeAt(0)) | 0, 0).toString(36).replace('-', '')
   const cssText = source.toString('utf8')
   const classMap: Record<string, string> = {}
   const classPattern = /\.([a-zA-Z_][a-zA-Z0-9_-]*)/g
@@ -167,15 +191,17 @@ const clientConfig: UserConfig = {
         } else {
           abs = require.resolve(source)
         }
-        return CSS_VIRTUAL_PREFIX + abs + CSS_VIRTUAL_SUFFIX
+        return CSS_VIRTUAL_PREFIX + rememberCss(abs) + CSS_VIRTUAL_SUFFIX
       },
       async load(virtualId: string) {
         if (!virtualId.startsWith(CSS_VIRTUAL_PREFIX)) return null
-        const fileId = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
+        const buildId = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
+        const fileId = cssFiles.get(buildId)
+        if (fileId === undefined) throw new Error(`Unknown CSS build id: ${buildId}`)
         this.addWatchFile(fileId)
         const source = await readFile(fileId)
         if (fileId.endsWith('.module.css')) {
-          const { classMap, cssText } = transformCssModules(fileId, source)
+          const { classMap, cssText } = transformCssModules(buildId, source)
           return [
             injectTag(CLIENT_ID, fileId, cssText),
             `export default ${JSON.stringify(classMap)};`,
