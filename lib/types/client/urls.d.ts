@@ -10,7 +10,5 @@ export interface SessionScope {
     /** The session's working directory from the client list summary (optional). */
     cwd?: string;
 }
-/** Absolute URL of the media route for one path (raw bytes). */
-export declare function mediaUrl(scope: SessionScope, path: string): string;
-/** Absolute URL of the download route (Content-Disposition: attachment). */
-export declare function downloadUrl(scope: SessionScope, path: string): string;
+/** Absolute URL of the local or paired-remote download route. */
+export declare function downloadUrl(scope: SessionScope, path: string, href?: string): string;

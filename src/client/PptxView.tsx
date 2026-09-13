@@ -1,6 +1,6 @@
 /** High-fidelity browser-native PPTX preview with slide navigation. */
 import { useEffect, useRef, useState } from 'react'
-import { downloadUrl, mediaUrl, type SessionScope } from './urls.ts'
+import { downloadUrl, type SessionScope } from './urls.ts'
 import { t } from './locales.ts'
 import css from './office.module.css'
 
@@ -11,8 +11,8 @@ type LoadState =
   | { status: 'ready'; count: number }
   | { status: 'error'; message: string }
 
-export function PptxView(props: { scope: SessionScope; path: string; title: string }) {
-  const { scope, path, title } = props
+export function PptxView(props: { scope: SessionScope; path: string; title: string; mediaUrl?: string }) {
+  const { scope, path, title, mediaUrl } = props
   const hostRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<PptxViewerInstance | null>(null)
   const [load, setLoad] = useState<LoadState>({ status: 'loading' })
@@ -27,7 +27,8 @@ export function PptxView(props: { scope: SessionScope; path: string; title: stri
     setSlide(0)
     void (async () => {
       try {
-        const response = await fetch(mediaUrl(scope, path), { signal: controller.signal })
+        if (mediaUrl === undefined) throw new Error('Office preview URL is unavailable')
+        const response = await fetch(mediaUrl, { signal: controller.signal })
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const bytes = await response.arrayBuffer()
         if (controller.signal.aborted) return
@@ -74,7 +75,7 @@ export function PptxView(props: { scope: SessionScope; path: string; title: stri
       viewerRef.current = null
       host.innerHTML = ''
     }
-  }, [scope.sessionId, scope.cwd, path])
+  }, [scope.sessionId, scope.cwd, path, mediaUrl])
 
   const navigate = (target: number): void => {
     const viewer = viewerRef.current

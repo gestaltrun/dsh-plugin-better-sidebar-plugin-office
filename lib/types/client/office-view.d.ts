@@ -5,6 +5,7 @@ interface OfficeViewProps {
     scope: SessionScope;
     path: string;
     title: string;
+    mediaUrl?: string;
 }
 /**
  * Render a .docx file via docx-preview. The library renders into a container

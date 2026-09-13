@@ -16,7 +16,7 @@
  * import() collapses to a synchronous inline — see tsdown.config.ts).
  */
 import { useEffect, useRef, useState } from 'react'
-import { downloadUrl, mediaUrl, type SessionScope } from './urls.ts'
+import { downloadUrl, type SessionScope } from './urls.ts'
 import { t } from './locales.ts'
 import { xlsxWorkbookToUniver } from './xlsx-to-univer.ts'
 import css from './office.module.css'
@@ -36,6 +36,7 @@ interface OfficeViewProps {
   scope: SessionScope
   path: string
   title: string
+  mediaUrl?: string
 }
 
 /**
@@ -45,27 +46,28 @@ interface OfficeViewProps {
  * the DOM is enough.
  */
 export function DocxView(props: OfficeViewProps): JSX.Element {
-  const { scope, path, title } = props
+  const { scope, path, title, mediaUrl } = props
   const viewportRef = useRef<HTMLDivElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [load, setLoad] = useState<LoadState>({ status: 'loading' })
   const [zoom, setZoom] = useState(100)
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     const container = viewportRef.current
     const wrap = wrapRef.current
     if (container === null || wrap === null) return
     setZoom(100)
     void (async () => {
       try {
-        const response = await fetch(mediaUrl(scope, path))
-        if (cancelled) return
+        if (mediaUrl === undefined) throw new Error('Office preview URL is unavailable')
+        const response = await fetch(mediaUrl, { signal: controller.signal })
+        if (controller.signal.aborted) return
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`)
         }
         const buf = await response.arrayBuffer()
-        if (cancelled) return
+        if (controller.signal.aborted) return
         // docx-preview ships its own CSS through the className option; the
         // wrapper div scopes its render output.
         const { renderAsync } = await import('docx-preview')
@@ -77,19 +79,19 @@ export function DocxView(props: OfficeViewProps): JSX.Element {
           breakPages: true,
           experimental: false,
         })
-        if (!cancelled) setLoad({ status: 'ready' })
+        if (!controller.signal.aborted) setLoad({ status: 'ready' })
       } catch (error) {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setLoad({ status: 'error', message: error instanceof Error ? error.message : String(error) })
         }
       }
     })()
     return () => {
-      cancelled = true
+      controller.abort()
       // Tear down the rendered DOM so a reopen starts clean.
       if (wrap !== null) wrap.innerHTML = ''
     }
-  }, [scope.sessionId, scope.cwd, path])
+  }, [scope.sessionId, scope.cwd, path, mediaUrl])
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -144,24 +146,25 @@ export function DocxView(props: OfficeViewProps): JSX.Element {
  * xterm dispose discipline in the better-sidebar TerminalView).
  */
 export function XlsxView(props: OfficeViewProps): JSX.Element {
-  const { scope, path, title } = props
+  const { scope, path, title, mediaUrl } = props
   const hostRef = useRef<HTMLDivElement>(null)
   const univerRef = useRef<{ dispose: () => void } | null>(null)
   const [load, setLoad] = useState<LoadState>({ status: 'loading' })
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     const host = hostRef.current
     if (host === null) return
     void (async () => {
       try {
-        const response = await fetch(mediaUrl(scope, path))
-        if (cancelled) return
+        if (mediaUrl === undefined) throw new Error('Office preview URL is unavailable')
+        const response = await fetch(mediaUrl, { signal: controller.signal })
+        if (controller.signal.aborted) return
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`)
         }
         const buf = await response.arrayBuffer()
-        if (cancelled) return
+        if (controller.signal.aborted) return
 
         // Dynamic imports — collapsed into the bundle by codeSplitting:false.
         // The dynamic form keeps the source readable: each lib is only pulled
@@ -180,7 +183,7 @@ export function XlsxView(props: OfficeViewProps): JSX.Element {
         const locale = isZh ? LocaleType.ZH_CN : LocaleType.EN_US
         const workbookData = xlsxWorkbookToUniver(wb, '0.25.1', locale)
 
-        if (cancelled) return
+        if (controller.signal.aborted) return
         const { univer, univerAPI } = createUniver({
           locale,
           locales: localePack !== null ? { [locale]: mergeLocales(localePack) } : {},
@@ -188,9 +191,9 @@ export function XlsxView(props: OfficeViewProps): JSX.Element {
         })
         univerRef.current = univer
         univerAPI.createWorkbook(workbookData)
-        if (!cancelled) setLoad({ status: 'ready' })
+        if (!controller.signal.aborted) setLoad({ status: 'ready' })
       } catch (error) {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           try {
             univerRef.current?.dispose()
           } catch {
@@ -203,7 +206,7 @@ export function XlsxView(props: OfficeViewProps): JSX.Element {
       }
     })()
     return () => {
-      cancelled = true
+      controller.abort()
       // Critical: dispose the Univer instance (canvas + workers + listeners).
       try {
         univerRef.current?.dispose()
@@ -214,7 +217,7 @@ export function XlsxView(props: OfficeViewProps): JSX.Element {
       // Clear the host in case dispose left DOM behind.
       if (host !== null) host.innerHTML = ''
     }
-  }, [scope.sessionId, scope.cwd, path])
+  }, [scope.sessionId, scope.cwd, path, mediaUrl])
 
   return (
     <div className={css.editorXlsx} aria-label={title}>

@@ -6,6 +6,7 @@ Thumbs.db
 .idea/
 coverage/
 .tmp/
+.artifacts/
 # Prebuilt lib/ is committed (prebuilt strategy), but sourcemaps are
 # dev-only debugging aids and would bloat the repo (~33MB for the bundle).
 lib/*.map

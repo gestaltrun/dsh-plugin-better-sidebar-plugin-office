@@ -9,10 +9,10 @@
  * language — the theme better-locale patches LocaleRuntime.lookup is
  * mirrored here so the viewer chrome switches too.
  */
-/** All copy keys for the dsh-better-sidebar-plugin-office namespace. */
+/** All copy keys for the dsh-sidebar-office namespace. */
 export type OfficeKey = 'loading' | 'downloadToView' | 'previousSlide' | 'nextSlide' | 'zoom' | 'zoomHint' | 'viewerDocx' | 'viewerXlsx' | 'viewerPptx';
 /** Locale namespace id (matches the cordis.patch.yml plugin id). */
-export declare const NS = "dsh-better-sidebar-plugin-office";
+export declare const NS = "dsh-sidebar-office";
 /** English dictionary. */
 export declare const en: Record<OfficeKey, string>;
 /** Chinese dictionary (key-set-equal to en, enforced by the type annotation). */

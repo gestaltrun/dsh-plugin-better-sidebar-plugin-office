@@ -10,7 +10,7 @@
  * mirrored here so the viewer chrome switches too.
  */
 
-/** All copy keys for the dsh-better-sidebar-plugin-office namespace. */
+/** All copy keys for the dsh-sidebar-office namespace. */
 export type OfficeKey =
   | 'loading'
   | 'downloadToView'
@@ -23,7 +23,7 @@ export type OfficeKey =
   | 'viewerPptx'
 
 /** Locale namespace id (matches the cordis.patch.yml plugin id). */
-export const NS = 'dsh-better-sidebar-plugin-office'
+export const NS = 'dsh-sidebar-office'
 
 /** English dictionary. */
 export const en: Record<OfficeKey, string> = {
